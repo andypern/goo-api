@@ -4,6 +4,7 @@ import httplib2
 import os
 import sys
 import re
+from tabulate import tabulate
 
 from apiclient.discovery import build
 from oauth2client.client import flow_from_clientsecrets
@@ -26,7 +27,7 @@ CLIENT_SECRETS_FILE = "client_secrets.json"
 
 #put a list of playlists that you want to parse here
 
-playlistList = ['PLYl39p8cOuS-ywJ6n1aaeX_QykaLt4ki0' , 'PLYl39p8cOuS_sLDo3KUl_dr4iel5Boj9A'];
+playlistList = ['PLYl39p8cOuS-ywJ6n1aaeX_QykaLt4ki0'];
 
 
 # This variable defines a message to display if the CLIENT_SECRETS_FILE is
@@ -74,15 +75,17 @@ channels_response = youtube.channels().list(
   part="contentDetails"
 ).execute()
 
-table = Texttable()
+
+#not used anymore
+#html_table = h.table(header_row=['Title', 'Tags', 'Link', 'Duration'])
 
 for uploads_list_id in playlistList:
   # From the API response, extract the playlist ID that identifies the list
   # of videos uploaded to the authenticated user's channel.
   #uploads_list_id = channel["contentDetails"]["relatedPlaylists"]["uploads"]
-  uploads_list_id = 'PLYl39p8cOuS-ywJ6n1aaeX_QykaLt4ki0' 
+  
 
-  print "Videos in list %s" % uploads_list_id
+  #print "Videos in list %s" % uploads_list_id
 
   # Retrieve the list of videos uploaded to the authenticated user's channel.
   playlistitems_list_request = youtube.playlistItems().list(
@@ -91,37 +94,72 @@ for uploads_list_id in playlistList:
     maxResults=50
   )
 
-  while playlistitems_list_request:
-    playlistitems_list_response = playlistitems_list_request.execute()
+#make a list of lists
+html_list = []
 
-    #print playlistitems_list_response
-    #Print information about each video.
-    for playlist_item in playlistitems_list_response["items"]:
-      title = playlist_item["snippet"]["title"]
-      video_id = playlist_item["snippet"]["resourceId"]["videoId"]
+def listparse(playlistitems_list_response):
+
+  
+
+  #print playlistitems_list_response
+  #Print information about each video.
+  for playlist_item in playlistitems_list_response["items"]:
+    title = playlist_item["snippet"]["title"]
+    video_id = playlist_item["snippet"]["resourceId"]["videoId"]
 
 
-      video_response = youtube.videos().list(
-      id=video_id,
-      part='contentDetails, snippet'
-      ).execute()
+    video_response = youtube.videos().list(
+    id=video_id,
+    part='contentDetails, snippet'
+    ).execute()
+    
+    for vidresponse in video_response["items"]:
+      duration = vidresponse["contentDetails"]["duration"]
+      taglist = vidresponse["snippet"].get('tags')
+      try: 
+        mytags = ', '.join(taglist)
+      except KeyError:
+        mytags = 'notags'
+      except TypeError:
+        mytags = 'notags'
       
-      for vidresponse in video_response["items"]:
-        duration = vidresponse["contentDetails"]["duration"]
-        tags = vidresponse["snippet"]["tags"]
+       
+    #make a sub-list
+    item_list = []
+    replacedDuration = re.sub('[PT]', '', duration)
+    vidLink = "https://www.youtube.com/watch?v=" + video_id
+    vidHtml = '<a href="' + vidLink + '">' + vidLink + '</a>'
+    #print "%s https://www.youtube.com/watch?v=%s %s" % (title, video_id, replacedDuration)
+    #print "%s, %s, %s, %s" % (title, mytags, video_id, replacedDuration)
+    item_list.append(title)
+    item_list.append(mytags)
+    item_list.append(vidHtml)
+    item_list.append(replacedDuration)
+    #html_table.rows.append([title, mytags, vidLink, replacedDuration])
+    #table.add_rows([['Title', 'Tags', 'Link', 'Duration'], [title, mytags, vidLink, replacedDuration]])
+    
+    #append to bigger list (do we need to do all this?)
+    html_list.append(list(item_list))
 
-      replacedDuration = re.sub('[PT]', '', duration)
-      vidLink = "https://www.youtube.com/watch?v=" + video_id
-      #print "%s https://www.youtube.com/watch?v=%s %s" % (title, video_id, replacedDuration)
 
-      table.add_rows([['Title', 'Tags', 'Link', 'Duration'], [title, tags, vidLink, replacedDuration]])
+playlistitems_list_response = playlistitems_list_request.execute()
+
+listparse(playlistitems_list_response)
+
+#this only works up until 100 videos...i'm not calling list_next more than once...
+
+playlistitems_list_request = youtube.playlistItems().list_next(
+  playlistitems_list_request, playlistitems_list_response)
+
+resp = playlistitems_list_request.execute()
+
+listparse(resp)
+
+print tabulate(html_list, headers=['Title', 'Tags', 'Link', 'Duration'], tablefmt="html")
+#table width: title = 25, , tags=20, link = 45, duration=10
+#table.set_cols_width([25,20,45,10])
+#print table.draw()
 
 
 
-    playlistitems_list_request = youtube.playlistItems().list_next(
-      playlistitems_list_request, playlistitems_list_response)
-
-#table width: title = 25, link = 45, duration=10
-  table.set_cols_width([25,45,10])
-  print table.draw()
-  print
+print
