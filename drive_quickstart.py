@@ -56,18 +56,18 @@ def main():
     http = credentials.authorize(httplib2.Http())
     service = discovery.build('drive', 'v2', http=http)
 
-    results = service.files().list(q="modifiedDate>='2015-12-09T12:00:00'").execute()
+    results = service.files().list(q="modifiedDate>='2015-12-01T12:00:00'").execute()
     items = results.get('items', [])
     if not items:
         print('No files found.')
     else:
         print('Files:')
         for item in items:
-            try:
-                if "jhong" in item['lastModifyingUser']['emailAddress']:
-                    print('{0} ({1})'.format(item['originalFilename'], item['lastModifyingUser']['emailAddress']))
-            except KeyError:
-                print ("key error..skip")
-            #print (item)
+            #try:
+             #   if "jhong" in item['lastModifyingUser']['emailAddress']:
+             #       print('{0} ({1})'.format(item['originalFilename'], item['lastModifyingUser']['emailAddress']))
+            #except KeyError:
+            #    print ("key error..skip")
+            print (item['title'])
 if __name__ == '__main__':
     main()
