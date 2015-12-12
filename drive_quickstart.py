@@ -1,8 +1,10 @@
 from __future__ import print_function
 import httplib2
 import os
+import sys
 
 from apiclient import discovery
+from apiclient import errors
 import oauth2client
 from oauth2client import client
 from oauth2client import tools
@@ -13,10 +15,35 @@ try:
 except ImportError:
     flags = None
 
-SCOPES = 'https://www.googleapis.com/auth/drive.metadata.readonly'
+SCOPES = 'https://www.googleapis.com/auth/drive'
 CLIENT_SECRET_FILE = 'client_secret.json'
 APPLICATION_NAME = 'Drive API Python Quickstart'
 
+###################
+#
+#
+#TODO:
+# * implement variables for query/filter/etc
+# * inspect main() for error handling
+# * make more modular
+#
+####################
+
+
+#
+#some specific variables
+#
+
+userName = "jhong"
+
+fileFilter = "vvv"
+
+filterQuery = "modifiedDate>='2015-12-09T12:00:00' and title contains 'vvv'"
+
+returnedResults = 1000
+#
+#end variables
+#
 
 def get_credentials():
     """Gets valid user credentials from storage.
@@ -46,28 +73,60 @@ def get_credentials():
         print('Storing credentials to ' + credential_path)
     return credentials
 
-def main():
-    """Shows basic usage of the Google Drive API.
+def cleanup():
 
-    Creates a Google Drive API service object and outputs the names and IDs
-    for up to 10 files.
-    """
     credentials = get_credentials()
     http = credentials.authorize(httplib2.Http())
     service = discovery.build('drive', 'v2', http=http)
 
-    results = service.files().list(q="modifiedDate>='2015-12-01T12:00:00'").execute()
+    results = service.files().list(q="modifiedDate>='2015-12-09T12:00:00' and title contains 'vvv'", maxResults=1000).execute()
     items = results.get('items', [])
     if not items:
         print('No files found.')
     else:
-        print('Files:')
+        returnedResults = len(items)
         for item in items:
-            #try:
-             #   if "jhong" in item['lastModifyingUser']['emailAddress']:
-             #       print('{0} ({1})'.format(item['originalFilename'], item['lastModifyingUser']['emailAddress']))
-            #except KeyError:
-            #    print ("key error..skip")
-            print (item['title'])
-if __name__ == '__main__':
-    main()
+            try:
+                if "jhong" in item['lastModifyingUser']['emailAddress']:
+                    
+                    revs = service.revisions().list(fileId=item['id']).execute()
+                    #only do things to files that have 2 rev's..those w/ more may require tender care..
+                    if len(revs['items']) == 2:
+                        #that means we have a backup, usually the [0] index is the older one, but lets make sure
+                        if 'vvv' in revs['items'][1]['originalFilename']:
+                            try:
+                                revId = revs['items'][1]['id']
+                                oldFileName = revs['items'][0]['originalFilename']
+                                oldFileModDate = revs['items'][0]['modifiedDate']
+                                print("deleting revision " + revs['items'][1]['originalFilename'])
+                                service.revisions().delete(
+                                    fileId=item['id'], revisionId=revId).execute()
+                            except errors.HttpError, error:
+                                print('http error %s' %(error))
+
+                            #now, rename the 'vvv' file to original name, which we can get from the other rev
+                            try:
+                                #first, pull all file metadata
+                                objFile = service.files().get(fileId=item['id']).execute()
+                                #set the attributes we want to change
+                                objFile['title'] = oldFileName
+                                objFile['modifiedDate'] = oldFileModDate
+
+                                #execute the change, note we need to set the 'setModifiedDate' flag
+                                updated_file = service.files().update(
+                                    fileId=item['id'],
+                                    body=objFile,
+                                    modifiedDateBehavior='fromBody',
+                                    setModifiedDate='true').execute()
+                                
+                            except errors.HttpError, error:
+                                print('An error occurred: %s' % error)
+
+            except KeyError:
+                print ("key error..skip")
+            except UnicodeEncodeError:
+                print ("unicode error, skip")
+            #print (item['title'])
+
+if returnedResults == 1000:
+    cleanup()
