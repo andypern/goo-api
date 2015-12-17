@@ -26,7 +26,8 @@ APPLICATION_NAME = 'Drive API Python Quickstart'
 # * implement variables for query/filter/etc
 # * inspect main() for error handling
 # * make more modular
-#
+# * implement a 'list only' so that we can see what matches
+# * implement logging so we can keep the GUID somewhere in case we need it
 ####################
 
 
@@ -114,38 +115,7 @@ def cleanup():
                                 
                             except errors.HttpError, error:
                                 print('An error occurred: %s' % error)
-                    # #items with 2 revisions mean that we can just delete the current one, and rename with the previous one
-                    # if len(revs['items']) == 2:
-                    #     #that means we have a backup, usually the [0] index is the older one, but lets make sure
-                    #     if 'vvv' in revs['items'][1]['originalFilename']:
-                    #         try:
-                    #             revId = revs['items'][1]['id']
-                    #             oldFileName = revs['items'][0]['originalFilename']
-                    #             oldFileModDate = revs['items'][0]['modifiedDate']
-                    #             print("deleting revision " + revs['items'][1]['originalFilename'])
-                    #             service.revisions().delete(
-                    #                 fileId=item['id'], revisionId=revId).execute()
-                    #         except errors.HttpError, error:
-                    #             print('http error %s' %(error))
-
-                    #         #now, rename the 'vvv' file to original name, which we can get from the other rev
-                    #         try:
-                    #             #first, pull all file metadata
-                    #             objFile = service.files().get(fileId=item['id']).execute()
-                    #             #set the attributes we want to change
-                    #             objFile['title'] = oldFileName
-                    #             objFile['modifiedDate'] = oldFileModDate
-                    #             print("renaming to :%s" %(oldFileName))
-
-                    #             #execute the change, note we need to set the 'setModifiedDate' flag
-                    #             updated_file = service.files().update(
-                    #                 fileId=item['id'],
-                    #                 body=objFile,
-                    #                 modifiedDateBehavior='fromBody',
-                    #                 setModifiedDate='true').execute()
-                                
-                    #         except errors.HttpError, error:
-                    #             print('An error occurred: %s' % error)
+                   
                  #items with 2 or more revisions require that we count the revision, delete most current, and replace with previous. Except
                  # when more than one revision is 'bad', in which case we have to walk backwards until we find a good one.  We don't want to go all the way back in case there are
                  # multiple 'good' versions.
