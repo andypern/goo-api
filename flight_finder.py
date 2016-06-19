@@ -1,4 +1,5 @@
 import pprint
+import os
 import sys
 import re
 from datetime import datetime
@@ -8,6 +9,16 @@ import getopt
 
 
 from googleapiclient.discovery import build
+
+
+
+#######
+# stuff to build in
+# * deal with over quota exception and move to next key
+#
+#
+#
+#
 
 
 ###############
@@ -39,8 +50,11 @@ from googleapiclient.discovery import build
 # duration = how long of a trip.  Choose a minimum of 7 or else you probably won't get good RT fares.
 # note: script will iterate through a maximum of maxSearch , since google sets a 50/day quota.
 
+
+keydir = "/Users/andypern/Desktop/GCE/flight"
+
 startDate = '2016-09-15'
-endDate = '2016-02-15'
+endDate = '2017-02-15'
 duration = 8
 maxSearch = 5
 
@@ -52,9 +66,6 @@ QPX_API_VERSION = 'v1'
 
 #set some defaults
 
-keyfile =  "/Users/andypern/Desktop/GCE/flight.key"
-#keyfile =  "/Users/andypern/Desktop/GCE/hallie.r.shapiro.flight.key"
-keyfile =  "/Users/andypern/Desktop/GCE/matthew.pernsteiner.flight.key"
 
 pretend = False
 cabin = "BUSINESS"
@@ -103,16 +114,27 @@ for opt, arg in opts:
 #####end opts
 
 
-fh = open(keyfile, 'r')
 
-dev_key = fh.read()
 
 
 def main():
 
-  dateSlider(startDate,endDate)
+  keylist = key_rotator(keydir)
 
-def build_request(depDate,retDate):
+  #
+  #simplest thing for now is to just loop through the keys and perform requests.
+  # more elegant way might be to pre-build a dictionary of all our requests, count them, 
+  # and figure out if we have enough..
+  #
+  #
+  print keylist
+  
+  #for now, so we don't break it
+  dev_key = keylist[0]
+
+  dateSlider(startDate,endDate,dev_key)
+
+def build_request(depDate,retDate,dev_key):
 
   if not pretend:
 
@@ -254,8 +276,22 @@ def build_request(depDate,retDate):
       print "+++++%s mins, %s miles , cpm %s+++++" %(totalFlightTime, totalMiles, costPerFlown)
 
 
+def key_rotator(keydir):
 
-def dateSlider(startDate,endDate):
+  keys = []
+
+  keyfiles = os.listdir(keydir)
+  for k in keyfiles:
+    keyfile = keydir + '/' + k
+    fh = open(keyfile, 'r')
+    keys.append(fh.read().strip())
+
+  return keys
+
+
+
+
+def dateSlider(startDate,endDate,dev_key):
 # thoughts: create while loop until maxSearch is met
 # for each iteration, add a random # of days to the startDate , so long as it fits within endDate
 # Add 'duration' to randomized startDate , and the resulting pair becomes what gets passed to the request.
@@ -305,7 +341,7 @@ def dateSlider(startDate,endDate):
     iteration += 1
   
     #now we can try to execute
-    build_request(str(newSdate),str(newEdate))
+    build_request(str(newSdate),str(newEdate),dev_key)
 
 
 
